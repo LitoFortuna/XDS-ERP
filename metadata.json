@@ -1,0 +1,7 @@
+{
+  "name": "Xen Dance Space ERP",
+  "description": "A minimalist and robust ERP for Xen Dance Space to manage schedules, students, teachers, finances, and view key business metrics on a central dashboard.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
