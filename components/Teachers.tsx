@@ -5,7 +5,7 @@ import { XIcon } from './Icons';
 
 interface TeachersProps {
   teachers: Teacher[];
-  onUpdateTeachers: (teachers: Teacher[]) => void;
+  onSaveTeacher: (teacher: Teacher) => void;
   classes: ClassSession[];
   disciplines: Discipline[];
 }
@@ -51,7 +51,7 @@ const TeacherModal: React.FC<{
         }
 
         const finalTeacher: Teacher = {
-            id: currentTeacher.id || `teacher-${Date.now()}`,
+            id: currentTeacher.id || `new-${Date.now()}`,
             name: currentTeacher.name,
             contact: currentTeacher.contact || '',
         };
@@ -112,20 +112,9 @@ const TeacherListItem = React.memo<{ teacher: Teacher, assignedClassesCount: num
     );
 });
 
-export const Teachers: React.FC<TeachersProps> = ({ teachers, onUpdateTeachers, classes, disciplines }) => {
+export const Teachers: React.FC<TeachersProps> = ({ teachers, onSaveTeacher, classes, disciplines }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState<Partial<Teacher> | null>(null);
-
-    const handleSaveTeacher = (teacher: Teacher) => {
-        const existingIndex = teachers.findIndex(t => t.id === teacher.id);
-        if (existingIndex > -1) {
-            const updated = [...teachers];
-            updated[existingIndex] = teacher;
-            onUpdateTeachers(updated);
-        } else {
-            onUpdateTeachers([...teachers, teacher]);
-        }
-    };
     
     const handleOpenModal = (teacher: Partial<Teacher> | null = null) => {
         setSelectedTeacher(teacher || {});
@@ -169,7 +158,7 @@ export const Teachers: React.FC<TeachersProps> = ({ teachers, onUpdateTeachers, 
             <TeacherModal 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveTeacher}
+                onSave={onSaveTeacher}
                 teacher={selectedTeacher}
                 classes={classes}
                 disciplines={disciplines}

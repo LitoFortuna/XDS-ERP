@@ -8,9 +8,10 @@ interface CrudListProps<T> {
   renderHeader?: () => React.ReactNode;
   onAddItem: () => void;
   searchKeys: (keyof T)[];
+  headerActions?: React.ReactNode;
 }
 
-export function CrudList<T extends { id: string }>({ title, items, renderItem, renderHeader, onAddItem, searchKeys }: CrudListProps<T>) {
+export function CrudList<T extends { id: string }>({ title, items, renderItem, renderHeader, onAddItem, searchKeys, headerActions }: CrudListProps<T>) {
   const [searchTerm, setSearchTerm] = React.useState('');
 
   const filteredItems = items.filter(item => {
@@ -28,10 +29,13 @@ export function CrudList<T extends { id: string }>({ title, items, renderItem, r
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold text-brand-dark">{title}</h1>
-        <button onClick={onAddItem} className="flex items-center px-4 py-2 bg-brand-pink text-white rounded-lg shadow hover:bg-pink-600 transition-colors">
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Añadir
-        </button>
+        <div className="flex items-center space-x-4">
+            {headerActions}
+            <button onClick={onAddItem} className="flex items-center px-4 py-2 bg-brand-pink text-white rounded-lg shadow hover:bg-pink-600 transition-colors">
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Añadir
+            </button>
+        </div>
       </div>
       <div className="mb-6">
         <input

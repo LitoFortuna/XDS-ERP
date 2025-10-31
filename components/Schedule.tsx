@@ -8,7 +8,8 @@ interface ScheduleProps {
   classes: ClassSession[];
   teachers: Teacher[];
   students: Student[];
-  onUpdateClasses: (classes: ClassSession[]) => void;
+  onSaveClass: (session: ClassSession) => void;
+  onDeleteClass: (sessionId: string) => void;
 }
 
 const ClassCard = React.memo<{ classInfo: ClassSession; teacherName?: string; onClick: () => void }>(({ classInfo, teacherName, onClick }) => {
@@ -38,24 +39,9 @@ const ClassCard = React.memo<{ classInfo: ClassSession; teacherName?: string; on
     );
 });
 
-export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students, onUpdateClasses }) => {
+export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students, onSaveClass, onDeleteClass }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSession, setSelectedSession] = useState<Partial<ClassSession> | null>(null);
-
-    const handleSaveClass = (session: ClassSession) => {
-        const existingIndex = classes.findIndex(c => c.id === session.id);
-        if (existingIndex > -1) {
-            const updatedClasses = [...classes];
-            updatedClasses[existingIndex] = session;
-            onUpdateClasses(updatedClasses);
-        } else {
-            onUpdateClasses([...classes, session]);
-        }
-    };
-    
-    const handleDeleteClass = (sessionId: string) => {
-        onUpdateClasses(classes.filter(c => c.id !== sessionId));
-    };
 
     const handleOpenModal = (session: Partial<ClassSession> | null = null) => {
         setSelectedSession(session || {});
@@ -129,8 +115,8 @@ export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students,
              <ClassModal 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveClass}
-                onDelete={handleDeleteClass}
+                onSave={onSaveClass}
+                onDelete={onDeleteClass}
                 session={selectedSession}
                 allClasses={classes}
                 teachers={teachers}

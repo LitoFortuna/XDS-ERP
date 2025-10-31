@@ -9,11 +9,12 @@ type TransactionType = 'cobro' | 'gasto';
 interface TransactionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (type: TransactionType, data: Omit<Payment, 'id'> | Omit<Cost, 'id'>) => void;
+    onAddPayment: (payment: Omit<Payment, 'id'>) => void;
+    onAddCost: (cost: Omit<Cost, 'id'>) => void;
     students: Student[];
 }
 
-const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, onSave, students }) => {
+const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, onAddPayment, onAddCost, students }) => {
     const [type, setType] = useState<TransactionType>('cobro');
     const [studentId, setStudentId] = useState('');
     const [amount, setAmount] = useState<number | ''>('');
@@ -33,13 +34,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, on
                 alert('Para un cobro, se requiere alumna/o, monto, fecha y método.');
                 return;
             }
-            onSave('cobro', { studentId, amount: Number(amount), date: new Date(date).toISOString(), method });
+            onAddPayment({ studentId, amount: Number(amount), date: new Date(date).toISOString(), method });
         } else { // gasto
             if (!description || amount === '' || !date || !category) {
                 alert('Para un gasto, se requiere descripción, monto, fecha y categoría.');
                 return;
             }
-            onSave('gasto', { description, amount: Number(amount), date: new Date(date).toISOString(), category });
+            onAddCost({ description, amount: Number(amount), date: new Date(date).toISOString(), category });
         }
         onClose();
         // Reset state for next time
@@ -111,9 +112,9 @@ type Transaction = {
     details: string;
 };
 
-const TransactionListItem = React.memo<{ transaction: Transaction }>(({ transaction: tx }) => {
+const TransactionListItem = React.memo<{ transaction: Transaction, onDelete: (id: string, type: 'cobro' | 'gasto') => void }>(({ transaction: tx, onDelete }) => {
     return (
-        <div className="p-4 grid grid-cols-4 gap-4 items-center">
+        <div className="p-4 grid grid-cols-5 gap-4 items-center group">
             <div className="col-span-2 flex items-center">
                 <div className={`w-2 h-8 rounded-full mr-4 ${tx.type === 'cobro' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <div>
@@ -125,6 +126,15 @@ const TransactionListItem = React.memo<{ transaction: Transaction }>(({ transact
             <span className={`font-mono text-right font-semibold ${tx.type === 'cobro' ? 'text-green-600' : 'text-red-600'}`}>
                 {tx.type === 'cobro' ? '+' : '-'} {tx.amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
             </span>
+            <div className="text-right">
+                 <button 
+                    onClick={() => onDelete(tx.id, tx.type)} 
+                    className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Eliminar transacción"
+                >
+                    <XIcon className="w-5 h-5" />
+                </button>
+            </div>
         </div>
     );
 });
@@ -133,27 +143,11 @@ export const Finances: React.FC<{
     payments: Payment[], 
     costs: Cost[],
     students: Student[],
-    // FIX: Updated onUpdatePayments and onUpdateCosts prop types to be compatible with React's state updater functions.
-    onUpdatePayments: React.Dispatch<React.SetStateAction<Payment[]>>,
-    onUpdateCosts: React.Dispatch<React.SetStateAction<Cost[]>>,
-}> = ({ payments, costs, students, onUpdatePayments, onUpdateCosts }) => {
+    onAddPayment: (payment: Omit<Payment, 'id'>) => void,
+    onAddCost: (cost: Omit<Cost, 'id'>) => void,
+    onDeleteTransaction: (id: string, type: 'cobro' | 'gasto') => void,
+}> = ({ payments, costs, students, onAddPayment, onAddCost, onDeleteTransaction }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const handleSaveTransaction = (type: TransactionType, data: Omit<Payment, 'id'> | Omit<Cost, 'id'>) => {
-        if (type === 'cobro') {
-            const newPayment: Payment = {
-                ...(data as Omit<Payment, 'id'>),
-                id: `pay-${Date.now()}`
-            };
-            onUpdatePayments(prev => [...prev, newPayment]);
-        } else {
-            const newCost: Cost = {
-                ...(data as Omit<Cost, 'id'>),
-                id: `cost-${Date.now()}`
-            };
-            onUpdateCosts(prev => [...prev, newCost]);
-        }
-    };
     
     const allTransactions: Transaction[] = useMemo(() => {
         const mappedPayments: Transaction[] = payments.map(p => ({
@@ -177,10 +171,11 @@ export const Finances: React.FC<{
 
 
     const ListHeader = () => (
-        <div className="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-4 gap-4 items-center text-sm font-semibold text-gray-600">
+        <div className="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-5 gap-4 items-center text-sm font-semibold text-gray-600">
             <span className="col-span-2">Concepto</span>
             <span>Fecha</span>
             <span className="text-right">Monto</span>
+            <span className="text-right">Acciones</span>
         </div>
     );
 
@@ -192,12 +187,13 @@ export const Finances: React.FC<{
                 searchKeys={['concept']}
                 onAddItem={() => setIsModalOpen(true)}
                 renderHeader={ListHeader}
-                renderItem={(tx) => <TransactionListItem transaction={tx} />}
+                renderItem={(tx) => <TransactionListItem transaction={tx} onDelete={onDeleteTransaction} />}
             />
             <TransactionModal 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveTransaction}
+                onAddPayment={onAddPayment}
+                onAddCost={onAddCost}
                 students={students}
             />
         </>

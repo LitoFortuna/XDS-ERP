@@ -5,8 +5,8 @@ import { Student, Payment, Cost } from '../types';
 
 interface ImageAnalyzerProps {
     students: Student[];
-    onUpdatePayments: React.Dispatch<React.SetStateAction<Payment[]>>;
-    onUpdateCosts: React.Dispatch<React.SetStateAction<Cost[]>>;
+    onAddPayment: (payment: Omit<Payment, 'id'>) => void;
+    onAddCost: (cost: Omit<Cost, 'id'>) => void;
 }
 
 interface AnalysisResult {
@@ -108,7 +108,7 @@ const AnalyzedTransactionForm: React.FC<{
 };
 
 
-export const ImageAnalyzer: React.FC<ImageAnalyzerProps> = ({ students, onUpdatePayments, onUpdateCosts }) => {
+export const ImageAnalyzer: React.FC<ImageAnalyzerProps> = ({ students, onAddPayment, onAddCost }) => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -160,17 +160,9 @@ export const ImageAnalyzer: React.FC<ImageAnalyzerProps> = ({ students, onUpdate
 
     const handleSaveTransaction = (type: 'cobro' | 'gasto', data: Omit<Payment, 'id'> | Omit<Cost, 'id'>) => {
         if (type === 'cobro') {
-            const newPayment: Payment = {
-                ...(data as Omit<Payment, 'id'>),
-                id: `pay-${Date.now()}`
-            };
-            onUpdatePayments(prev => [...prev, newPayment]);
+            onAddPayment(data as Omit<Payment, 'id'>);
         } else {
-            const newCost: Cost = {
-                ...(data as Omit<Cost, 'id'>),
-                id: `cost-${Date.now()}`
-            };
-            onUpdateCosts(prev => [...prev, newCost]);
+            onAddCost(data as Omit<Cost, 'id'>);
         }
         // Reset after saving
         setAnalysisResult(null);

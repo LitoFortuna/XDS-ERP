@@ -5,11 +5,12 @@ import { XIcon } from './Icons';
 
 interface StudentsProps {
   students: Student[];
-  onUpdateStudents: (students: Student[]) => void;
+  onSaveStudent: (student: Student) => void;
   classes: ClassSession[];
   disciplines: Discipline[];
   teachers: Teacher[];
   payments: Payment[];
+  onSyncStudents: () => Promise<void>;
 }
 
 const StudentModal: React.FC<{
@@ -69,7 +70,7 @@ const StudentModal: React.FC<{
         }
 
         const finalStudent: Student = {
-            id: currentStudent.id || `student-${Date.now()}`,
+            id: currentStudent.id || `new-${Date.now()}`, // ID is temporary for new items
             name: currentStudent.name,
             email: currentStudent.email,
             phone: currentStudent.phone,
@@ -237,21 +238,10 @@ const StudentListItem = React.memo<{ student: Student; payments: Payment[]; onCl
 });
 
 
-export const Students: React.FC<StudentsProps> = ({ students, onUpdateStudents, classes, disciplines, teachers, payments }) => {
+export const Students: React.FC<StudentsProps> = ({ students, onSaveStudent, classes, disciplines, teachers, payments, onSyncStudents }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<Partial<Student> | null>(null);
 
-    const handleSaveStudent = (student: Student) => {
-        const existingIndex = students.findIndex(s => s.id === student.id);
-        if (existingIndex > -1) {
-            const updated = [...students];
-            updated[existingIndex] = student;
-            onUpdateStudents(updated);
-        } else {
-            onUpdateStudents([...students, student]);
-        }
-    };
-    
     const handleOpenModal = (student: Partial<Student> | null = null) => {
         setSelectedStudent(student || { active: true, joinDate: new Date().toISOString() });
         setIsModalOpen(true);
@@ -277,6 +267,15 @@ export const Students: React.FC<StudentsProps> = ({ students, onUpdateStudents, 
                 items={students}
                 searchKeys={['name', 'email']}
                 onAddItem={() => handleOpenModal()}
+                headerActions={
+                    <button 
+                        onClick={onSyncStudents} 
+                        className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-colors"
+                        aria-label="Sincronizar alumnado con la base de datos"
+                    >
+                        Sincronizar
+                    </button>
+                }
                 renderHeader={ListHeader}
                 renderItem={(student) => (
                     <StudentListItem student={student} payments={payments} onClick={handleOpenModal} />
@@ -285,7 +284,7 @@ export const Students: React.FC<StudentsProps> = ({ students, onUpdateStudents, 
             <StudentModal 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveStudent}
+                onSave={onSaveStudent}
                 student={selectedStudent}
                 classes={classes}
                 disciplines={disciplines}

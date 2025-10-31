@@ -9,7 +9,8 @@ interface ClassesProps {
   teachers: Teacher[];
   disciplines: Discipline[];
   students: Student[];
-  onUpdateClasses: (classes: ClassSession[]) => void;
+  onSaveClass: (session: ClassSession) => void;
+  onDeleteClass: (sessionId: string) => void;
 }
 
 type AugmentedClass = ClassSession & { disciplineName: string, teacherName: string };
@@ -31,24 +32,9 @@ const ClassListItem = React.memo<{ session: AugmentedClass; onClick: (session: A
 });
 
 
-export const Classes: React.FC<ClassesProps> = ({ classes, teachers, disciplines, students, onUpdateClasses }) => {
+export const Classes: React.FC<ClassesProps> = ({ classes, teachers, disciplines, students, onSaveClass, onDeleteClass }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSession, setSelectedSession] = useState<Partial<ClassSession> | null>(null);
-
-    const handleSaveClass = (session: ClassSession) => {
-        const existingIndex = classes.findIndex(c => c.id === session.id);
-        if (existingIndex > -1) {
-            const updatedClasses = [...classes];
-            updatedClasses[existingIndex] = session;
-            onUpdateClasses(updatedClasses);
-        } else {
-            onUpdateClasses([...classes, session]);
-        }
-    };
-
-    const handleDeleteClass = (sessionId: string) => {
-        onUpdateClasses(classes.filter(c => c.id !== sessionId));
-    };
 
     const handleOpenModal = (session: Partial<ClassSession> | null = null) => {
         setSelectedSession(session || { studentIds: [] });
@@ -90,8 +76,8 @@ export const Classes: React.FC<ClassesProps> = ({ classes, teachers, disciplines
             <ClassModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveClass}
-                onDelete={handleDeleteClass}
+                onSave={onSaveClass}
+                onDelete={onDeleteClass}
                 session={selectedSession}
                 allClasses={classes}
                 teachers={teachers}
