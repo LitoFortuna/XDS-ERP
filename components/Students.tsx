@@ -21,7 +21,8 @@ const StudentModal: React.FC<{
     classes: ClassSession[];
     disciplines: Discipline[];
     teachers: Teacher[];
-}> = ({ isOpen, onClose, onSave, student, classes, disciplines, teachers }) => {
+    payments: Payment[];
+}> = ({ isOpen, onClose, onSave, student, classes, disciplines, teachers, payments }) => {
     const [currentStudent, setCurrentStudent] = useState<Partial<Student> | null>(student);
 
     React.useEffect(() => {
@@ -43,6 +44,13 @@ const StudentModal: React.FC<{
             })
             .sort((a,b) => new Date(a.startTime).getDay() - new Date(b.startTime).getDay());
     }, [classes, disciplines, teachers, currentStudent]);
+
+    const paymentHistory = useMemo(() => {
+        if (!currentStudent?.id) return [];
+        return payments
+            .filter(p => p.studentId === currentStudent.id)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [payments, currentStudent]);
 
 
     if (!isOpen || !currentStudent) return null;
@@ -150,26 +158,46 @@ const StudentModal: React.FC<{
                     </div>
 
                     {currentStudent.id && (
-                        <div className="border-t pt-4">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Clases Inscritas ({enrolledClasses.length})</h3>
-                            {enrolledClasses.length > 0 ? (
-                                <ul className="space-y-2 max-h-40 overflow-y-auto pr-2 rounded-md bg-gray-50 p-2 border">
-                                    {enrolledClasses.map(c => {
-                                        const dayOfWeek = new Date(c.startTime).toLocaleDateString('es-ES', { weekday: 'long' });
-                                        const time = `${new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                        return (
-                                            <li key={c.id} className="p-2 bg-white rounded-md shadow-sm text-sm border-l-4 border-brand-pink">
-                                                <p className="font-bold text-brand-purple">{c.disciplineName}</p>
-                                                <p className="text-gray-600 capitalize">{dayOfWeek}, {time}</p>
-                                                <p className="text-xs text-gray-500 italic">Profesor/a: {c.teacherName}</p>
+                        <>
+                            <div className="border-t pt-4">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-2">Clases Inscritas ({enrolledClasses.length})</h3>
+                                {enrolledClasses.length > 0 ? (
+                                    <ul className="space-y-2 max-h-40 overflow-y-auto pr-2 rounded-md bg-gray-50 p-2 border">
+                                        {enrolledClasses.map(c => {
+                                            const dayOfWeek = new Date(c.startTime).toLocaleDateString('es-ES', { weekday: 'long' });
+                                            const time = `${new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                            return (
+                                                <li key={c.id} className="p-2 bg-white rounded-md shadow-sm text-sm border-l-4 border-brand-pink">
+                                                    <p className="font-bold text-brand-purple">{c.disciplineName}</p>
+                                                    <p className="text-gray-600 capitalize">{dayOfWeek}, {time}</p>
+                                                    <p className="text-xs text-gray-500 italic">Profesor/a: {c.teacherName}</p>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                ) : (
+                                    <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md">No está inscrita/o en ninguna clase.</p>
+                                )}
+                            </div>
+                             <div className="border-t pt-4">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-2">Historial de Pagos ({paymentHistory.length})</h3>
+                                {paymentHistory.length > 0 ? (
+                                    <ul className="space-y-2 max-h-40 overflow-y-auto pr-2 rounded-md bg-gray-50 p-2 border">
+                                        {paymentHistory.map(p => (
+                                            <li key={p.id} className="p-2 bg-white rounded-md shadow-sm text-sm border-l-4 border-green-500 flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{new Date(p.date).toLocaleDateString('es-ES')}</p>
+                                                    <p className="text-gray-600 capitalize">Método: {p.method}</p>
+                                                </div>
+                                                <span className="font-semibold text-green-700">{p.amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
                                             </li>
-                                        );
-                                    })}
-                                </ul>
-                            ) : (
-                                <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md">No está inscrita/o en ninguna clase.</p>
-                            )}
-                        </div>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md">No hay pagos registrados.</p>
+                                )}
+                            </div>
+                        </>
                     )}
 
 
@@ -289,6 +317,7 @@ export const Students: React.FC<StudentsProps> = ({ students, onSaveStudent, cla
                 classes={classes}
                 disciplines={disciplines}
                 teachers={teachers}
+                payments={payments}
             />
         </>
     );

@@ -11,7 +11,6 @@ import { Classes } from './components/Classes';
 import { ImageAnalyzer } from './components/ImageAnalyzer';
 import { DISCIPLINES, PLANS, INITIAL_STUDENTS, INITIAL_SCHEDULE, INITIAL_TEACHERS } from './constants';
 import { db } from './firebase';
-import { collection, getDocs, doc, setDoc, addDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 
 const App: React.FC = () => {
@@ -32,22 +31,25 @@ const App: React.FC = () => {
             setIsLoading(true);
             try {
                 const fetchAndSeed = async <T extends {id: string}>(collectionName: string, initialData: T[]): Promise<T[]> => {
-                    const collRef = collection(db, collectionName);
-                    const snapshot = await getDocs(collRef);
+                    // FIX: Use v8 namespaced API for Firestore
+                    const collRef = db.collection(collectionName);
+                    const snapshot = await collRef.get();
                     
                     if (snapshot.empty && initialData.length > 0) {
                         console.log(`Seeding ${collectionName}...`);
-                        const batch = writeBatch(db);
+                        // FIX: Use v8 namespaced API for Firestore
+                        const batch = db.batch();
                         initialData.forEach(item => {
-                            // Use the item's own ID when creating the document reference to preserve relationships
-                            const docRef = doc(db, collectionName, item.id);
-                            batch.set(docRef, item);
+                            // FIX: Use v8 namespaced API for Firestore
+                            const docRef = db.collection(collectionName).doc(item.id);
+                             // Exclude id from the document data to prevent duplication and ensure consistency.
+                            const { id, ...itemData } = item;
+                            batch.set(docRef, itemData);
                         });
                         await batch.commit();
-                        return initialData; // Return the data that was just seeded
+                        return initialData;
                     }
                     
-                    // If collection is not empty, map the data from Firestore
                     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as T[];
                 };
 
@@ -80,12 +82,16 @@ const App: React.FC = () => {
 
     const handleSaveStudent = async (student: Student) => {
         const isNew = !student.id || student.id.startsWith('new-');
+        // Create a clean object without the 'id' field for saving.
+        const { id, ...studentData } = student;
+
         if (isNew) {
-            const { id, ...studentData } = student;
-            const docRef = await addDoc(collection(db, 'students'), studentData);
+            // FIX: Use v8 namespaced API for Firestore
+            const docRef = await db.collection('students').add(studentData);
             setStudents(prev => [...prev, { ...student, id: docRef.id }]);
         } else {
-            await setDoc(doc(db, 'students', student.id), student);
+            // FIX: Use v8 namespaced API for Firestore
+            await db.collection('students').doc(id).set(studentData);
             setStudents(prev => prev.map(s => s.id === student.id ? student : s));
         }
     };
@@ -97,10 +103,12 @@ const App: React.FC = () => {
 
         console.log("Starting student sync...");
         setIsLoading(true);
-        const batch = writeBatch(db);
+        // FIX: Use v8 namespaced API for Firestore
+        const batch = db.batch();
         students.forEach(student => {
-            const studentRef = doc(db, 'students', student.id);
-            const studentData = { ...student }; // Create a clean object
+            // FIX: Use v8 namespaced API for Firestore
+            const studentRef = db.collection('students').doc(student.id);
+            const { id, ...studentData } = student; // Create a clean object without the id field
             batch.set(studentRef, studentData);
         });
 
@@ -117,49 +125,71 @@ const App: React.FC = () => {
 
     const handleSaveTeacher = async (teacher: Teacher) => {
         const isNew = !teacher.id || teacher.id.startsWith('new-');
+        const { id, ...teacherData } = teacher;
+
         if (isNew) {
-            const { id, ...teacherData } = teacher;
-            const docRef = await addDoc(collection(db, 'teachers'), teacherData);
+            // FIX: Use v8 namespaced API for Firestore
+            const docRef = await db.collection('teachers').add(teacherData);
             setTeachers(prev => [...prev, { ...teacher, id: docRef.id }]);
         } else {
-            await setDoc(doc(db, 'teachers', teacher.id), teacher);
+            // FIX: Use v8 namespaced API for Firestore
+            await db.collection('teachers').doc(id).set(teacherData);
             setTeachers(prev => prev.map(t => t.id === teacher.id ? teacher : t));
         }
     };
 
     const handleSaveClass = async (classSession: ClassSession) => {
+        // Determine if this is a new class. The modal assigns a temporary ID starting with 'cs-'.
         const isNew = !classSession.id || classSession.id.startsWith('cs-');
-        if (isNew) {
-            const { id, ...classData } = classSession;
-            const docRef = await addDoc(collection(db, 'classes'), classData);
-            setClasses(prev => [...prev, { ...classSession, id: docRef.id }]);
-        } else {
-            await setDoc(doc(db, 'classes', classSession.id), classSession);
-            setClasses(prev => prev.map(c => c.id === classSession.id ? classSession : c));
+        
+        // Separate the ID from the actual data to be stored in Firestore.
+        // The document ID itself serves as the identifier, so we don't store it in the document's fields.
+        const { id, ...classData } = classSession;
+
+        try {
+            if (isNew) {
+                // If it's a new class, add it to the 'classes' collection.
+                // Firestore will generate a unique ID for the new document.
+                const docRef = await db.collection('classes').add(classData);
+                // Update the local application state, replacing the temporary ID with the new permanent one from Firestore.
+                setClasses(prev => [...prev, { ...classSession, id: docRef.id }]);
+            } else {
+                // If it's an existing class, update the document with the matching ID.
+                await db.collection('classes').doc(id).set(classData);
+                // Update the local application state by replacing the old version of the class with the new one.
+                setClasses(prev => prev.map(c => c.id === id ? classSession : c));
+            }
+        } catch (error) {
+            console.error("Error saving class:", error);
+            alert("No se pudo guardar la clase. Por favor, inténtalo de nuevo.");
         }
     };
 
     const handleDeleteClass = async (classId: string) => {
-        await deleteDoc(doc(db, 'classes', classId));
+        // FIX: Use v8 namespaced API for Firestore
+        await db.collection('classes').doc(classId).delete();
         setClasses(prev => prev.filter(c => c.id !== classId));
     };
 
     const handleAddPayment = async (paymentData: Omit<Payment, 'id'>) => {
-        const docRef = await addDoc(collection(db, 'payments'), paymentData);
+        // FIX: Use v8 namespaced API for Firestore
+        const docRef = await db.collection('payments').add(paymentData);
         setPayments(prev => [...prev, { ...paymentData, id: docRef.id }]);
     };
     
     const handleAddCost = async (costData: Omit<Cost, 'id'>) => {
-        const docRef = await addDoc(collection(db, 'costs'), costData);
+        // FIX: Use v8 namespaced API for Firestore
+        const docRef = await db.collection('costs').add(costData);
         setCosts(prev => [...prev, { ...costData, id: docRef.id }]);
     };
     
     const handleDeleteTransaction = async (id: string, type: 'cobro' | 'gasto') => {
+        const collectionName = type === 'cobro' ? 'payments' : 'costs';
+        // FIX: Use v8 namespaced API for Firestore
+        await db.collection(collectionName).doc(id).delete();
         if (type === 'cobro') {
-            await deleteDoc(doc(db, 'payments', id));
             setPayments(prev => prev.filter(p => p.id !== id));
         } else {
-            await deleteDoc(doc(db, 'costs', id));
             setCosts(prev => prev.filter(c => c.id !== id));
         }
     };
@@ -175,9 +205,9 @@ const App: React.FC = () => {
         }
         switch (currentPage) {
             case 'dashboard':
-                return <Dashboard students={students} classes={classes} payments={payments} costs={costs} />;
+                return <Dashboard students={students} classes={classes} payments={payments} costs={costs} disciplines={disciplines} />;
             case 'schedule':
-                return <Schedule classes={classes} teachers={teachers} students={students} onSaveClass={handleSaveClass} onDeleteClass={handleDeleteClass} />;
+                return <Schedule classes={classes} teachers={teachers} students={students} disciplines={disciplines} onSaveClass={handleSaveClass} onDeleteClass={handleDeleteClass} />;
             case 'classes':
                 return <Classes classes={classes} teachers={teachers} disciplines={disciplines} students={students} onSaveClass={handleSaveClass} onDeleteClass={handleDeleteClass} />;
             case 'students':
@@ -200,7 +230,7 @@ const App: React.FC = () => {
                             onAddCost={handleAddCost}
                         />;
             default:
-                return <Dashboard students={students} classes={classes} payments={payments} costs={costs} />;
+                return <Dashboard students={students} classes={classes} payments={payments} costs={costs} disciplines={disciplines} />;
         }
     };
 

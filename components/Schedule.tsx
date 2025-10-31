@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ClassSession, Teacher, Student, Discipline } from '../types';
-import { WEEKDAYS, DISCIPLINES } from '../constants';
+import { WEEKDAYS } from '../constants';
 import { PlusIcon } from './Icons';
 import { ClassModal } from './ClassModal';
 
@@ -8,12 +8,13 @@ interface ScheduleProps {
   classes: ClassSession[];
   teachers: Teacher[];
   students: Student[];
+  disciplines: Discipline[];
   onSaveClass: (session: ClassSession) => void;
   onDeleteClass: (sessionId: string) => void;
 }
 
-const ClassCard = React.memo<{ classInfo: ClassSession; teacherName?: string; onClick: () => void }>(({ classInfo, teacherName, onClick }) => {
-    const discipline = DISCIPLINES.find(d => d.id === classInfo.disciplineId);
+const ClassCard = React.memo<{ classInfo: ClassSession; teacherName?: string; disciplines: Discipline[]; onClick: () => void }>(({ classInfo, teacherName, disciplines, onClick }) => {
+    const discipline = disciplines.find(d => d.id === classInfo.disciplineId);
     const occupancy = classInfo.capacity > 0 ? (classInfo.studentIds.length / classInfo.capacity) * 100 : 0;
     const occupancyColor = occupancy > 85 ? 'bg-red-500' : occupancy > 60 ? 'bg-yellow-500' : 'bg-green-500';
 
@@ -39,7 +40,7 @@ const ClassCard = React.memo<{ classInfo: ClassSession; teacherName?: string; on
     );
 });
 
-export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students, onSaveClass, onDeleteClass }) => {
+export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students, disciplines, onSaveClass, onDeleteClass }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSession, setSelectedSession] = useState<Partial<ClassSession> | null>(null);
 
@@ -105,7 +106,7 @@ export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students,
                                     width: `${(1 / 5) * 100}%`,
                                     padding: '0 4px',
                                 }}>
-                                    <ClassCard classInfo={c} teacherName={teacher?.name} onClick={() => handleOpenModal(c)}/>
+                                    <ClassCard classInfo={c} teacherName={teacher?.name} disciplines={disciplines} onClick={() => handleOpenModal(c)}/>
                                 </div>
                             )
                         })}
@@ -120,7 +121,7 @@ export const Schedule: React.FC<ScheduleProps> = ({ classes, teachers, students,
                 session={selectedSession}
                 allClasses={classes}
                 teachers={teachers}
-                disciplines={DISCIPLINES}
+                disciplines={disciplines}
                 students={students}
             />
         </div>

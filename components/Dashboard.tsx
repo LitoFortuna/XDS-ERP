@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Student, ClassSession, Payment, Cost } from '../types';
+import { Student, ClassSession, Payment, Cost, Discipline } from '../types';
 import { UsersIcon, CalendarIcon, CurrencyDollarIcon } from './Icons';
-import { DISCIPLINES } from '../constants';
 
 interface DashboardProps {
     students: Student[];
     classes: ClassSession[];
     payments: Payment[];
     costs: Cost[];
+    disciplines: Discipline[];
 }
 
 const KPICard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
@@ -38,7 +38,7 @@ const TopClassItem = React.memo(({ classInfo }: { classInfo: ClassSession & { di
 });
 
 
-export const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, costs }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, costs, disciplines }) => {
     const chartRef = useRef<HTMLCanvasElement | null>(null);
     const chartInstance = useRef<any>(null);
 
@@ -58,7 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ students, classes, payment
     const topClasses = [...classes]
         .map(c => ({
             ...c,
-            disciplineName: DISCIPLINES.find(d => d.id === c.disciplineId)?.name || 'Clase Desconocida'
+            disciplineName: disciplines.find(d => d.id === c.disciplineId)?.name || 'Clase Desconocida'
         }))
         .sort((a, b) => (b.studentIds.length / b.capacity) - (a.studentIds.length / a.capacity))
         .slice(0, 5);

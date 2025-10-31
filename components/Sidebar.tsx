@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Page } from '../types';
-import { DashboardIcon, CalendarIcon, UsersIcon, BriefcaseIcon, CurrencyEuroIcon, LogoutIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, BookOpenIcon, SparklesIcon } from './Icons';
+import { DashboardIcon, CalendarIcon, UsersIcon, BriefcaseIcon, CurrencyEuroIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, BookOpenIcon, SparklesIcon } from './Icons';
 
 interface SidebarProps {
   currentPage: Page;
@@ -65,14 +64,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isCollap
       <div className="p-4 border-t">
         <div 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`flex items-center p-3 rounded-lg cursor-pointer text-gray-600 hover:bg-brand-light hover:text-brand-purple mb-2 ${isCollapsed ? 'justify-center' : ''}`}
+            className={`flex items-center p-3 rounded-lg cursor-pointer text-gray-600 hover:bg-brand-light hover:text-brand-purple ${isCollapsed ? 'justify-center' : ''}`}
         >
           {isCollapsed ? <ChevronDoubleRightIcon className="w-6 h-6 flex-shrink-0"/> : <ChevronDoubleLeftIcon className="w-6 h-6 flex-shrink-0"/>}
           {!isCollapsed && <span className="ml-4 font-semibold whitespace-nowrap">Encoger</span>}
-        </div>
-        <div className={`flex items-center p-3 rounded-lg cursor-pointer text-gray-600 hover:bg-red-100 hover:text-red-600 ${isCollapsed ? 'justify-center' : ''}`}>
-            <LogoutIcon className="w-6 h-6 flex-shrink-0" />
-            {!isCollapsed && <span className="ml-4 font-semibold whitespace-nowrap">Cerrar Sesión</span>}
         </div>
       </div>
     </div>

@@ -145,10 +145,14 @@ export const ImageAnalyzer: React.FC<ImageAnalyzerProps> = ({ students, onAddPay
             });
 
             const text = response.text;
-            const jsonString = text.trim().replace(/^```json|```$/g, '');
-            const result = JSON.parse(jsonString);
-            
-            setAnalysisResult(result);
+            try {
+                const jsonString = text.trim().replace(/^```json|```$/g, '');
+                const result = JSON.parse(jsonString);
+                setAnalysisResult(result);
+            } catch (jsonError) {
+                console.error("Failed to parse JSON from Gemini:", jsonError);
+                setError("La IA devolvió un formato inesperado. Inténtalo con otra imagen.");
+            }
 
         } catch (err) {
             console.error(err);
