@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Page, Student, Teacher, ClassSession, Payment, Cost, Plan, Discipline } from './types';
+import { Page, Student, Teacher, ClassSession, Payment, Cost, Plan, Discipline, Notification } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { Schedule } from './components/Schedule';
@@ -8,9 +8,21 @@ import { Students } from './components/Students';
 import { Teachers } from './components/Teachers';
 import { Finances } from './components/Finances';
 import { Classes } from './components/Classes';
-import { ImageAnalyzer } from './components/ImageAnalyzer';
+import { Notifications } from './components/Notifications';
 import { DISCIPLINES, PLANS, INITIAL_STUDENTS, INITIAL_SCHEDULE, INITIAL_TEACHERS } from './constants';
 import { db } from './firebase';
+import { 
+    collection, 
+    onSnapshot, 
+    query, 
+    limit, 
+    getDocs, 
+    writeBatch, 
+    doc, 
+    addDoc,
+    setDoc,
+    deleteDoc,
+} from 'firebase/firestore';
 
 
 const App: React.FC = () => {
@@ -25,58 +37,129 @@ const App: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [costs, setCosts] = useState<Cost[]>([]);
     const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    
+    const [dismissedNotifications, setDismissedNotifications] = useState<string[]>(() => {
+        const saved = localStorage.getItem('dismissedNotifications');
+        return saved ? JSON.parse(saved) : [];
+    });
 
     useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                const fetchAndSeed = async <T extends {id: string}>(collectionName: string, initialData: T[]): Promise<T[]> => {
-                    // FIX: Use v8 namespaced API for Firestore
-                    const collRef = db.collection(collectionName);
-                    const snapshot = await collRef.get();
-                    
-                    if (snapshot.empty && initialData.length > 0) {
-                        console.log(`Seeding ${collectionName}...`);
-                        // FIX: Use v8 namespaced API for Firestore
-                        const batch = db.batch();
-                        initialData.forEach(item => {
-                            // FIX: Use v8 namespaced API for Firestore
-                            const docRef = db.collection(collectionName).doc(item.id);
-                             // Exclude id from the document data to prevent duplication and ensure consistency.
-                            const { id, ...itemData } = item;
-                            batch.set(docRef, itemData);
-                        });
-                        await batch.commit();
-                        return initialData;
-                    }
-                    
-                    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as T[];
-                };
+        const collections: { name: keyof typeof initialDataMap; setData: (data: any) => void }[] = [
+            { name: 'students', setData: setStudents },
+            { name: 'teachers', setData: setTeachers },
+            { name: 'classes', setData: setClasses },
+            { name: 'payments', setData: setPayments },
+            { name: 'costs', setData: setCosts },
+            { name: 'disciplines', setData: setDisciplines },
+        ];
 
-                const [studentsData, teachersData, classesData, paymentsData, costsData, disciplinesData] = await Promise.all([
-                    fetchAndSeed('students', INITIAL_STUDENTS),
-                    fetchAndSeed('teachers', INITIAL_TEACHERS),
-                    fetchAndSeed('classes', INITIAL_SCHEDULE),
-                    fetchAndSeed('payments', []),
-                    fetchAndSeed('costs', []),
-                    fetchAndSeed('disciplines', DISCIPLINES),
-                ]);
-
-                setStudents(studentsData);
-                setTeachers(teachersData);
-                setClasses(classesData);
-                setPayments(paymentsData);
-                setCosts(costsData);
-                setDisciplines(disciplinesData);
-
-            } catch (error) {
-                console.error("Error fetching data from Firebase:", error);
-            } finally {
-                setIsLoading(false);
-            }
+        const initialDataMap = {
+            students: INITIAL_STUDENTS,
+            teachers: INITIAL_TEACHERS,
+            classes: INITIAL_SCHEDULE,
+            payments: [],
+            costs: [],
+            disciplines: DISCIPLINES,
         };
-        fetchData();
+
+        const unsubscribes = collections.map(({ name, setData }) => {
+            const collRef = collection(db, name);
+
+            // First, check if collection is empty to seed data
+            const q = query(collRef, limit(1));
+            getDocs(q).then(snapshot => {
+                if (snapshot.empty && initialDataMap[name].length > 0) {
+                    console.log(`Seeding ${name}...`);
+                    const batch = writeBatch(db);
+                    const initialData = initialDataMap[name];
+                    initialData.forEach((item: any) => {
+                        const docRef = doc(db, name, item.id);
+                        const { id, ...itemData } = item;
+                        batch.set(docRef, itemData);
+                    });
+                    batch.commit().catch(err => console.error(`Failed to seed ${name}:`, err));
+                }
+            }).catch(err => console.error(`Error checking ${name} for seeding:`, err));
+
+            // Then, set up the real-time listener
+            const unsubscribe = onSnapshot(
+                collRef,
+                snapshot => {
+                    const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as any[];
+                    setData(data);
+                    setIsLoading(false); // Stop loading after first successful fetch for any collection
+                },
+                error => {
+                    console.error(`Error fetching ${name}:`, error);
+                    // If rules are wrong, this error will fire, preventing infinite load.
+                    setIsLoading(false);
+                }
+            );
+            return unsubscribe;
+        });
+
+        // Cleanup function to unsubscribe from all listeners when the component unmounts
+        return () => unsubscribes.forEach(unsub => unsub());
     }, []);
+
+    // --- Notification Logic ---
+    useEffect(() => {
+        if (isLoading || disciplines.length === 0) return;
+
+        const findConflicts = (allClasses: ClassSession[]): Notification[] => {
+            const conflicts: Notification[] = [];
+            const sortedClasses = [...allClasses].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            for (let i = 0; i < sortedClasses.length; i++) {
+                for (let j = i + 1; j < sortedClasses.length; j++) {
+                    const classA = sortedClasses[i];
+                    const classB = sortedClasses[j];
+                    const startA = new Date(classA.startTime);
+                    const endA = new Date(classA.endTime);
+                    const startB = new Date(classB.startTime);
+                    const endB = new Date(classB.endTime);
+
+                    if (startA < endB && startB < endA) {
+                        const disciplineA = disciplines.find(d => d.id === classA.disciplineId)?.name || 'Clase desconocida';
+                        const disciplineB = disciplines.find(d => d.id === classB.disciplineId)?.name || 'Clase desconocida';
+                        conflicts.push({
+                            id: `conflict-${classA.id}-${classB.id}`,
+                            message: `Conflicto de horario: '${disciplineA}' se solapa con '${disciplineB}'.`,
+                            type: 'error',
+                        });
+                    }
+                }
+            }
+            return conflicts;
+        };
+
+        const findLowEnrollment = (allClasses: ClassSession[]): Notification[] => {
+            const LOW_ENROLLMENT_THRESHOLD = 3;
+            return allClasses
+                .filter(c => c.studentIds.length > 0 && c.studentIds.length <= LOW_ENROLLMENT_THRESHOLD)
+                .map(c => {
+                    const discipline = disciplines.find(d => d.id === c.disciplineId)?.name || 'Clase desconocida';
+                    const day = new Date(c.startTime).toLocaleDateString('es-ES', { weekday: 'long' });
+                    return {
+                        id: `low-enrollment-${c.id}`,
+                        message: `Baja inscripción: La clase '${discipline}' del ${day} tiene solo ${c.studentIds.length} alumna/o(s).`,
+                        type: 'warning',
+                    };
+                });
+        };
+
+        const allGeneratedNotifications = [...findConflicts(classes), ...findLowEnrollment(classes)];
+        const newNotifications = allGeneratedNotifications.filter(n => !dismissedNotifications.includes(n.id));
+        setNotifications(newNotifications);
+
+    }, [classes, disciplines, isLoading, dismissedNotifications]);
+
+
+    const handleDismissNotification = (id: string) => {
+        const newDismissed = [...dismissedNotifications, id];
+        setDismissedNotifications(newDismissed);
+        localStorage.setItem('dismissedNotifications', JSON.stringify(newDismissed));
+    };
 
     // --- CRUD Handlers ---
 
@@ -86,13 +169,10 @@ const App: React.FC = () => {
         const { id, ...studentData } = student;
 
         if (isNew) {
-            // FIX: Use v8 namespaced API for Firestore
-            const docRef = await db.collection('students').add(studentData);
-            setStudents(prev => [...prev, { ...student, id: docRef.id }]);
+            // Firestore will generate ID, onSnapshot will update state
+            await addDoc(collection(db, 'students'), studentData);
         } else {
-            // FIX: Use v8 namespaced API for Firestore
-            await db.collection('students').doc(id).set(studentData);
-            setStudents(prev => prev.map(s => s.id === student.id ? student : s));
+            await setDoc(doc(db, 'students', id), studentData, { merge: true });
         }
     };
 
@@ -103,13 +183,11 @@ const App: React.FC = () => {
 
         console.log("Starting student sync...");
         setIsLoading(true);
-        // FIX: Use v8 namespaced API for Firestore
-        const batch = db.batch();
+        const batch = writeBatch(db);
         students.forEach(student => {
-            // FIX: Use v8 namespaced API for Firestore
-            const studentRef = db.collection('students').doc(student.id);
-            const { id, ...studentData } = student; // Create a clean object without the id field
-            batch.set(studentRef, studentData);
+            const studentRef = doc(db, 'students', student.id);
+            const { id, ...studentData } = student;
+            batch.set(studentRef, studentData, { merge: true });
         });
 
         try {
@@ -128,36 +206,21 @@ const App: React.FC = () => {
         const { id, ...teacherData } = teacher;
 
         if (isNew) {
-            // FIX: Use v8 namespaced API for Firestore
-            const docRef = await db.collection('teachers').add(teacherData);
-            setTeachers(prev => [...prev, { ...teacher, id: docRef.id }]);
+            await addDoc(collection(db, 'teachers'), teacherData);
         } else {
-            // FIX: Use v8 namespaced API for Firestore
-            await db.collection('teachers').doc(id).set(teacherData);
-            setTeachers(prev => prev.map(t => t.id === teacher.id ? teacher : t));
+            await setDoc(doc(db, 'teachers', id), teacherData, { merge: true });
         }
     };
 
     const handleSaveClass = async (classSession: ClassSession) => {
-        // Determine if this is a new class. The modal assigns a temporary ID starting with 'cs-'.
         const isNew = !classSession.id || classSession.id.startsWith('cs-');
-        
-        // Separate the ID from the actual data to be stored in Firestore.
-        // The document ID itself serves as the identifier, so we don't store it in the document's fields.
         const { id, ...classData } = classSession;
 
         try {
             if (isNew) {
-                // If it's a new class, add it to the 'classes' collection.
-                // Firestore will generate a unique ID for the new document.
-                const docRef = await db.collection('classes').add(classData);
-                // Update the local application state, replacing the temporary ID with the new permanent one from Firestore.
-                setClasses(prev => [...prev, { ...classSession, id: docRef.id }]);
+                await addDoc(collection(db, 'classes'), classData);
             } else {
-                // If it's an existing class, update the document with the matching ID.
-                await db.collection('classes').doc(id).set(classData);
-                // Update the local application state by replacing the old version of the class with the new one.
-                setClasses(prev => prev.map(c => c.id === id ? classSession : c));
+                await setDoc(doc(db, 'classes', id), classData, { merge: true });
             }
         } catch (error) {
             console.error("Error saving class:", error);
@@ -166,32 +229,20 @@ const App: React.FC = () => {
     };
 
     const handleDeleteClass = async (classId: string) => {
-        // FIX: Use v8 namespaced API for Firestore
-        await db.collection('classes').doc(classId).delete();
-        setClasses(prev => prev.filter(c => c.id !== classId));
+        await deleteDoc(doc(db, 'classes', classId));
     };
 
     const handleAddPayment = async (paymentData: Omit<Payment, 'id'>) => {
-        // FIX: Use v8 namespaced API for Firestore
-        const docRef = await db.collection('payments').add(paymentData);
-        setPayments(prev => [...prev, { ...paymentData, id: docRef.id }]);
+        await addDoc(collection(db, 'payments'), paymentData);
     };
     
     const handleAddCost = async (costData: Omit<Cost, 'id'>) => {
-        // FIX: Use v8 namespaced API for Firestore
-        const docRef = await db.collection('costs').add(costData);
-        setCosts(prev => [...prev, { ...costData, id: docRef.id }]);
+        await addDoc(collection(db, 'costs'), costData);
     };
     
     const handleDeleteTransaction = async (id: string, type: 'cobro' | 'gasto') => {
         const collectionName = type === 'cobro' ? 'payments' : 'costs';
-        // FIX: Use v8 namespaced API for Firestore
-        await db.collection(collectionName).doc(id).delete();
-        if (type === 'cobro') {
-            setPayments(prev => prev.filter(p => p.id !== id));
-        } else {
-            setCosts(prev => prev.filter(c => c.id !== id));
-        }
+        await deleteDoc(doc(db, collectionName, id));
     };
 
 
@@ -223,12 +274,6 @@ const App: React.FC = () => {
                             onAddCost={handleAddCost}
                             onDeleteTransaction={handleDeleteTransaction}
                         />;
-            case 'imageAnalyzer':
-                 return <ImageAnalyzer 
-                            students={students} 
-                            onAddPayment={handleAddPayment}
-                            onAddCost={handleAddCost}
-                        />;
             default:
                 return <Dashboard students={students} classes={classes} payments={payments} costs={costs} disciplines={disciplines} />;
         }
@@ -243,6 +288,7 @@ const App: React.FC = () => {
                 setIsCollapsed={setIsSidebarCollapsed}
             />
             <main className={`flex-1 overflow-y-auto bg-brand-light transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
+                <Notifications notifications={notifications} onDismiss={handleDismissNotification} />
                 {renderPage()}
             </main>
         </div>

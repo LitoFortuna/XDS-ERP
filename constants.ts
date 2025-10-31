@@ -341,7 +341,7 @@ export const INITIAL_SCHEDULE: ClassSession[] = [
   { id: 'cs25', disciplineId: 'd17', startTime: '2025-09-04T09:15:00', endTime: '2025-09-04T10:15:00', capacity: 15, studentIds: [] },
   { id: 'cs26', disciplineId: 'd2', startTime: '2025-09-04T15:15:00', endTime: '2025-09-04T16:15:00', capacity: 15, studentIds: [] },
   { id: 'cs27', disciplineId: 'd21', startTime: '2025-09-04T17:15:00', endTime: '2025-09-04T18:15:00', capacity: 15, studentIds: [] },
-  { id: 'cs28', disciplineId: 'd22', startTime: '2025-09-04T18:15:00', endTime: '2025-09-04T19:15:00', capacity: 15, studentIds: [] },
+  { id: 'cs28', disciplineId: 'd22', startTime: '2025-09-04T18:15:00', endTime: '2025-09-04T19:00:00', capacity: 15, studentIds: [] },
   { id: 'cs29', disciplineId: 'd1', startTime: '2025-09-04T19:00:00', endTime: '2025-09-04T19:45:00', capacity: 15, studentIds: [] },
   { id: 'cs30', disciplineId: 'd2', startTime: '2025-09-04T19:45:00', endTime: '2025-09-04T20:30:00', capacity: 15, studentIds: [] },
   { id: 'cs31', disciplineId: 'd13', startTime: '2025-09-04T20:30:00', endTime: '2025-09-04T21:30:00', capacity: 15, studentIds: [] },

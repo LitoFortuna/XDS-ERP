@@ -1,5 +1,5 @@
 
-export type Page = 'dashboard' | 'schedule' | 'classes' | 'students' | 'teachers' | 'finances' | 'imageAnalyzer';
+export type Page = 'dashboard' | 'schedule' | 'classes' | 'students' | 'teachers' | 'finances';
 
 export interface Student {
   id: string;
@@ -17,7 +17,7 @@ export interface Student {
 }
 
 export interface Teacher {
-  id: string;
+  id:string;
   name: string;
   contact: string;
 }
@@ -60,4 +60,10 @@ export interface Cost {
   description: string;
   classSessionId?: string;
   teacherId?: string;
+}
+
+export interface Notification {
+  id: string;
+  message: string;
+  type: 'warning' | 'error';
 }

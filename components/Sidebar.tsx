@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Page } from '../types';
-import { DashboardIcon, CalendarIcon, UsersIcon, BriefcaseIcon, CurrencyEuroIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, BookOpenIcon, SparklesIcon } from './Icons';
+import { DashboardIcon, CalendarIcon, UsersIcon, BriefcaseIcon, CurrencyEuroIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, BookOpenIcon } from './Icons';
 
 interface SidebarProps {
   currentPage: Page;
@@ -38,7 +39,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isCollap
     { page: 'students', label: 'Alumnado', icon: UsersIcon },
     { page: 'teachers', label: 'Profesorado', icon: BriefcaseIcon },
     { page: 'finances', label: 'Finanzas', icon: CurrencyEuroIcon },
-    { page: 'imageAnalyzer', label: 'Analizar Recibo', icon: SparklesIcon },
   ];
 
   return (

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ClassSession, Teacher, Discipline, Student } from '../types';
 import { XIcon } from './Icons';
@@ -147,7 +148,7 @@ export const ClassModal: React.FC<ClassModalProps> = ({
             endTime: newEndTime.toISOString(),
             capacity: Number(currentSession.capacity),
             studentIds: currentSession.studentIds || [],
-            teacherId: currentSession.teacherId || undefined,
+            teacherId: currentSession.teacherId || '',
         };
         onSave(finalSession);
         onClose();

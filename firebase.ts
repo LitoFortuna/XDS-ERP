@@ -1,9 +1,8 @@
-// FIX: Use Firebase v8 namespaced/compat imports
-// Fix: To support the v8 namespaced API with Firebase v9+, the compatibility library imports are required.
-import firebase from "firebase/compat/app";
-import "firebase/compat/firestore";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDc6yt2vd_-wR4lhG551szkydZKINXhBBs",
   authDomain: "xds-erp.firebaseapp.com",
@@ -16,12 +15,7 @@ const firebaseConfig = {
 
 
 // Initialize Firebase
-// FIX: Use Firebase v8 namespaced/compat API
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
+const app = initializeApp(firebaseConfig);
 
 // Initialize Cloud Firestore and get a reference to the service
-// FIX: Use Firebase v8 namespaced/compat API
-export const db = firebase.firestore();
+export const db = getFirestore(app);
